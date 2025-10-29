@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Retirement Calculator 2025</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  :root{
+    --bg:#f6f8f7;
+    --card:#ffffff;
+    --muted:#55606a;
+    --accent:#196f6f;
+    --sheet:#f3fff8;
+    --grid:#e6f4f0;
+    --bank:#2b6cff;
+    --invest:#16a34a;
+    --required:#ef4444;
+    --target1:#f59e0b;
+    --target2:#e11d48;
+  }
+  body{font-family:system-ui,sans-serif;background:var(--bg);margin:0;padding:22px;display:grid;grid-template-columns:520px 1fr;gap:16px;}
+  .card{background:var(--card);border-radius:10px;padding:16px;box-shadow:0 8px 22px rgba(2,6,23,0.06);}
+  h1{margin:0;font-size:18px}
+  .small{font-size:13px;color:var(--muted);margin-top:6px}
+  label{display:block;font-size:13px;color:var(--muted);margin-top:12px}
+  input[type="number"], select{width:100%;padding:10px;border-radius:8px;border:1px solid #e6eef2;font-size:14px;background:linear-gradient(180deg,#fff,#fbfeff);}
+  .row{display:flex;gap:8px}
+  .col{flex:1}
+  .btn{background:var(--accent);color:#fff;border:none;padding:10px 12px;border-radius:8px;font-weight:600;cursor:pointer}
+  .summary{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .cell{background:var(--sheet);border:1px solid var(--grid);padding:10px;border-radius:6px;min-width:160px;box-shadow:inset 0 -2px 0 rgba(0,0,0,0.02);}
+  .cell h3{margin:0;font-size:13px;color:#111}
+  .cell p{margin:6px 0 0;font-size:16px;font-weight:700}
+  .chart-wrap{padding:10px}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+  th,td{padding:8px;border-bottom:1px solid #eef6f4;text-align:right}
+  th{background:#fbfffe;text-align:left;color:var(--muted);font-weight:600}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Retirement Calculator 2025</h1>
+  <div class="small">กรอกข้อมูลแล้วเลื่อนไปดูตารางและกราฟทางขวา — Minimal / Google Sheets Style</div>
+
+  <label>อายุปัจจุบัน</label>
+  <input id="currentAge" type="number" value="26" min="0">
+
+  <label>อายุเกษียณ</label>
+  <input id="retireAge" type="number" value="40" min="0">
+
+  <label>อายุคาดว่าจะมีชีวิตอยู่</label>
+  <input id="lifeExpectancy" type="number" value="85" min="retireAge">
+
+  <label>เงินออมปัจจุบัน (บาท)</label>
+  <input id="currentSavings" type="number" value="80000" min="0">
+
+  <label>เงินออมต่อเดือน (บาท)</label>
+  <input id="monthlyContribution" type="number" value="2000" min="0">
+
+  <div class="row">
+    <div class="col">
+      <label>ผลตอบแทน ฝากธนาคาร (% ต่อปี)</label>
+      <input id="bankRate" type="number" step="0.01" value="1.5">
+    </div>
+    <div class="col">
+      <label>ผลตอบแทน ลงทุน (% ต่อปี)</label>
+      <input id="investRate" type="number" step="0.01" value="7">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <label>เงินเฟ้อ (% ต่อปี)</label>
+      <input id="inflation" type="number" step="0.01" value="3">
+    </div>
+  </div>
+
+  <hr style="margin:12px 0;border:1px dashed #ccc">
+
+  <h3>กรอกค่าใช้จ่ายต่อเดือน / ปี (Breakdown)</h3>
+  <label>1. Life Style (ค่ากิน ค่าเที่ยว ต่อเดือน)</label>
+  <input id="expenseLifestyle" type="number" value="10000" min="0">
+
+  <label>2. ค่าใช้จ่ายจำเป็น (ค่าน้ำ ค่าไฟ ค่าเน็ต ต่อเดือน)</label>
+  <input id="expenseEssential" type="number" value="5000" min="0">
+
+  <label>3. ค่ารักษาพยาบาล (ต่อปี)</label>
+  <label>3a. ประกันสังคม (ต่อปี)</label>
+  <input id="expenseSocial" type="number" value="5000" min="0">
+
+  <label>3b. ประกันชีวิตและสุขภาพ (ต่อปี)</label>
+  <input id="expenseHealthInsurance" type="number" value="60000" min="0">
+
+  <label>4. หนี้สิน (ต่อเดือน)</label>
+  <input id="expenseDebt" type="number" value="5000" min="0">
+
+  <div class="row" style="margin-top:12px;gap:8px;">
+    <button class="btn" id="calcBtn">คำนวณ</button>
+    <button class="btn" id="resetBtn" style="background:#c53030">รีเซ็ต</button>
+  </div>
+
+  <div class="summary" style="margin-top:12px">
+    <div class="cell"><h3>ปีที่เกษียณ</h3><p id="out_retireYear">-</p></div>
+    <div class="cell"><h3>ยอดรวม (Bank)</h3><p id="out_bankTotal">-</p></div>
+    <div class="cell"><h3>ยอดรวม (Invest)</h3><p id="out_investTotal">-</p></div>
+    <div class="cell"><h3>เงินที่ต้องมีตอนเกษียณ</h3><p id="out_required">-</p></div>
+
+    <div class="cell"><h3>Life Style</h3><p id="out_lifestyle">-</p></div>
+    <div class="cell"><h3>Essential</h3><p id="out_essential">-</p></div>
+    <div class="cell"><h3>Social</h3><p id="out_social">-</p></div>
+    <div class="cell"><h3>Health Insurance</h3><p id="out_healthInsurance">-</p></div>
+    <div class="cell"><h3>Debt</h3><p id="out_debt">-</p></div>
+  </div>
+</div>
+
+<!-- Charts + Table -->
+<div class="card">
+  <div class="chart-wrap">
+    <canvas id="lineChart" height="300"></canvas>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="barChart" height="150"></canvas>
+  </div>
+  <div id="tableArea"></div>
+</div>
+
+<script>
+function fmt(n){ return isFinite(n)? n.toLocaleString('th-TH') : '-'; }
+function toNumber(id){ return Number(document.getElementById(id).value) || 0; }
+
+function simulateBalances(current, monthly, annualRate, years){
+  const monthlyR = Math.pow(1+annualRate,1/12)-1;
+  let bal=current;
+  const yearly=[];
+  for(let y=1;y<=years;y++){
+    for(let m=0;m<12;m++){
+      bal = bal*(1+monthlyR)+monthly;
+    }
+    yearly.push(Math.round(bal));
+  }
+  return yearly;
+}
+
+function calcRequiredCapital(annualNeed, yearsRetired, nominalRate, inflation){
+  const realR = (1+nominalRate)/(1+inflation)-1;
+  if(yearsRetired<=0) return 0;
+  if(Math.abs(realR)<1e-9) return annualNeed*yearsRetired;
+  return annualNeed*(1-Math.pow(1+realR,-yearsRetired))/realR;
+}
+
+function calcMonthlyExpenses(){
+  const lifestyle = toNumber('expenseLifestyle');
+  const essential = toNumber('expenseEssential');
+  const social = toNumber('expenseSocial')/12;
+  const healthInsurance = toNumber('expenseHealthInsurance')/12;
+  const debt = toNumber('expenseDebt');
+  return { lifestyle, essential, social, healthInsurance, debt };
+}
+
+let lineChart=null;
+let barChart=null;
+
+function renderAll(){
+  const currentAge = toNumber('currentAge');
+  const retireAge = toNumber('retireAge');
+  const lifeExpectancy = toNumber('lifeExpectancy');
+  const currentSavings = toNumber('currentSavings');
+  const monthlyContribution = toNumber('monthlyContribution');
+  const bankRate = toNumber('bankRate')/100;
+  const investRate = toNumber('investRate')/100;
+  const inflation = toNumber('inflation')/100;
+
+  const yearsToGrow = Math.max(0, retireAge-currentAge);
+  const yearsRetired = Math.max(0, lifeExpectancy-retireAge);
+
+  const bankYearly = simulateBalances(currentSavings, monthlyContribution, bankRate, yearsToGrow);
+  const investYearly = simulateBalances(currentSavings, monthlyContribution, investRate, yearsToGrow);
+
+  const bankTotal = bankYearly[bankYearly.length-1]||currentSavings;
+  const investTotal = investYearly[investYearly.length-1]||currentSavings;
+
+  const expenses = calcMonthlyExpenses();
+  const desiredMonthly = expenses.lifestyle + expenses.essential + expenses.social + expenses.healthInsurance + expenses.debt;
+  const desiredMonthlySocial = expenses.lifestyle + expenses.essential + expenses.social + expenses.debt;
+  const desiredMonthlyHealth = expenses.lifestyle + expenses.essential + expenses.healthInsurance + expenses.debt;
+
+  const desiredMonthlyAtRetire = desiredMonthly*Math.pow(1+inflation,yearsToGrow);
+  const target1MonthlyAtRetire = desiredMonthlySocial*Math.pow(1+inflation,yearsToGrow);
+  const target2MonthlyAtRetire = desiredMonthlyHealth*Math.pow(1+inflation,yearsToGrow);
+
+  const annualNeed = desiredMonthlyAtRetire*12;
+  const target1 = calcRequiredCapital(target1MonthlyAtRetire*12, yearsRetired, investRate, inflation);
+  const target2 = calcRequiredCapital(target2MonthlyAtRetire*12, yearsRetired, investRate, inflation);
+
+  const requiredCapital = calcRequiredCapital(annualNeed, yearsRetired, investRate, inflation);
+
+  document.getElementById('out_retireYear').innerText = retireAge + ' (in '+yearsToGrow+' ปี)';
+  document.getElementById('out_bankTotal').innerText = fmt(bankTotal)+' ฿';
+  document.getElementById('out_investTotal').innerText = fmt(investTotal)+' ฿';
+  document.getElementById('out_required').innerText = fmt(requiredCapital)+' ฿';
+
+  document.getElementById('out_lifestyle').innerText = fmt(expenses.lifestyle)+' ฿';
+  document.getElementById('out_essential').innerText = fmt(expenses.essential)+' ฿';
+  document.getElementById('out_social').innerText = fmt(expenses.social*12)+' ฿';
+  document.getElementById('out_healthInsurance').innerText = fmt(expenses.healthInsurance*12)+' ฿';
+  document.getElementById('out_debt').innerText = fmt(expenses.debt)+' ฿';
+
+  const labels=[];
+  const bankData=[];
+  const investData=[];
+  const requiredData=[];
+  for(let i=0;i<yearsToGrow;i++){
+    labels.push(String(currentAge+i+1));
+    bankData.push(bankYearly[i]||0);
+    investData.push(investYearly[i]||0);
+    requiredData.push(Math.round(requiredCapital));
+  }
+
+  const ctx=document.getElementById('lineChart').getContext('2d');
+  if(lineChart){
+    lineChart.data.labels=labels;
+    lineChart.data.datasets[0].data=bankData;
+    lineChart.data.datasets[1].data=investData;
+    lineChart.data.datasets[2].data=requiredData;
+    lineChart.update();
+  }else{
+    lineChart=new Chart(ctx,{
+      type:'line',
+      data:{
+        labels,
+        datasets:[
+          {label:'Bank (ฝากธนาคาร)',data:bankData,borderColor:'rgba(43,108,255,1)',backgroundColor:'rgba(43,108,255,0.15)',fill:true,tension:0.25,pointRadius:3},
+          {label:'Invest (ลงทุน)',data:investData,borderColor:'rgba(22,163,74,1)',backgroundColor:'rgba(22,163,74,0.15)',fill:true,tension:0.25,pointRadius:3},
+          {label:'ยอดที่ควรมีตอนเกษียณ',data:requiredData,borderColor:'rgba(239,68,68,1)',borderDash:[6,4],fill:false,pointRadius:0}
+        ]
+      },
+      options:{
+        responsive:true,
+        interaction:{mode:'index',intersect:false},
+        plugins:{legend:{position:'top'}},
+        scales:{
+          y:{
+            beginAtZero:true,
+            ticks:{
+              callback:function(v){ return (v/1000000).toFixed(1)+'M'; } // แสดงล้านบาท
+            }
+          }
+        }
+      }
+    });
+  }
+
+  const ctx2=document.getElementById('barChart').getContext('2d');
+  if(barChart){
+    barChart.data.datasets[0].data=[target1,target2];
+    barChart.update();
+  }else{
+    barChart=new Chart(ctx2,{
+      type:'bar',
+      data:{
+        labels:['รวมประกันสังคม','รวมประกันชีวิต/สุขภาพ'],
+        datasets:[{
+          label:'เงินที่ต้องมีตอนเกษียณ',
+          data:[target1,target2],
+          backgroundColor:[getComputedStyle(document.documentElement).getPropertyValue('--target1'),getComputedStyle(document.documentElement).getPropertyValue('--target2')]
+        }]
+      },
+      options:{
+        responsive:true,
+        plugins:{legend:{display:false}},
+        scales:{y:{beginAtZero:true,ticks:{callback:function(v){return (v/1000000).toFixed(1)+'M'}}}}
+      }
+    });
+  }
+
+  // Table
+  let html='<table><tr><th>ปี</th><th>Bank</th><th>Invest</th><th>Required</th></tr>';
+  for(let i=0;i<yearsToGrow;i++){
+    html+='<tr><td>'+labels[i]+'</td><td>'+fmt(bankData[i])+'</td><td>'+fmt(investData[i])+'</td><td>'+fmt(requiredData[i])+'</td></tr>';
+  }
+  html+='</table>';
+  document.getElementById('tableArea').innerHTML=html;
+
+  localStorage.setItem('retCalc',JSON.stringify({
+    currentAge, retireAge, lifeExpectancy, currentSavings, monthlyContribution,
+    bankRate, investRate, inflation,
+    expenseLifestyle: expenses.lifestyle,
+    expenseEssential: expenses.essential,
+    expenseSocial: expenses.social*12,
+    expenseHealthInsurance: expenses.healthInsurance*12,
+    expenseDebt: expenses.debt
+  }));
+}
+
+window.addEventListener('load',()=>{
+  const saved=localStorage.getItem('retCalc');
+  if(saved){
+    const data=JSON.parse(saved);
+    Object.keys(data).forEach(k=>{
+      const el=document.getElementById(k);
+      if(el) el.value=data[k];
+    });
+  }
+  renderAll();
+});
+
+document.getElementById('calcBtn').addEventListener('click',renderAll);
+document.getElementById('resetBtn').addEventListener('click',()=>{localStorage.removeItem('retCalc'); location.reload();});
+</script>
+</body>
+</html>
